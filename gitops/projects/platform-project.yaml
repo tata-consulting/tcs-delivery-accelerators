@@ -1,0 +1,65 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform
+  namespace: argocd
+  labels:
+    tcs/layer: platform
+spec:
+  description: "Platform team project - cluster-scoped access for platform infrastructure"
+
+  # Allow deployments to any namespace for platform infrastructure
+  destinations:
+    - namespace: "*"
+      server: https://kubernetes.default.svc
+
+  # Allow sources from official Helm repositories and our org
+  sourceRepos:
+    - https://github.com/tata-consulting/*
+    - https://argoproj.github.io/argo-helm
+    - https://charts.jetstack.io
+    - https://kubernetes.github.io/ingress-nginx
+    - https://kedacore.github.io/charts
+    - https://prometheus-community.github.io/helm-charts
+    - https://grafana.github.io/helm-charts
+
+  # Cluster-scoped resource access for platform team
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+
+  # Sync windows: allow automated syncs during business hours only
+  syncWindows:
+    - kind: allow
+      schedule: "0 8 * * 1-5"
+      duration: 10h
+      applications:
+        - "*"
+      manualSync: true
+    - kind: deny
+      schedule: "0 18 * * 1-5"
+      duration: 14h
+      applications:
+        - "*"
+      manualSync: true
+
+  roles:
+    - name: platform-admin
+      description: "Full admin access for platform team members"
+      policies:
+        - p, proj:platform:platform-admin, applications, *, platform/*, allow
+        - p, proj:platform:platform-admin, repositories, *, *, allow
+        - p, proj:platform:platform-admin, clusters, *, *, allow
+      groups:
+        - tata-consulting:platform-team
+
+    - name: readonly
+      description: "Read-only access for all authenticated users"
+      policies:
+        - p, proj:platform:readonly, applications, get, platform/*, allow
+      groups:
+        - tata-consulting:engineering

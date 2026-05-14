@@ -1,0 +1,53 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: teams-workloads
+  namespace: argocd
+  labels:
+    tcs/layer: team-workloads
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/tata-consulting/tcs-delivery-accelerators
+        revision: HEAD
+        directories:
+          - path: apps/*/*/*/*
+  template:
+    metadata:
+      name: "{{path.basenameNormalized}}-{{path[2]}}-{{path[3]}}"
+      labels:
+        tcs/team: "{{path[1]}}"
+        tcs/environment: "{{path[2]}}"
+        tcs/service: "{{path[3]}}"
+      annotations:
+        notifications.argoproj.io/subscribe.on-sync-succeeded.slack: "{{path[1]}}-deployments"
+        notifications.argoproj.io/subscribe.on-sync-failed.slack: "{{path[1]}}-deployments"
+    spec:
+      project: "{{path[1]}}"
+      source:
+        repoURL: https://github.com/tata-consulting/tcs-delivery-accelerators
+        targetRevision: HEAD
+        path: "{{path}}"
+        helm:
+          valueFiles:
+            - values.yaml
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{path[1]}}-{{path[2]}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+      ignoreDifferences:
+        - group: ""
+          kind: Service
+          jsonPointers:
+            - /spec/clusterIP
+            - /spec/clusterIPs
+        - group: apps
+          kind: Deployment
+          jsonPointers:
+            - /spec/replicas

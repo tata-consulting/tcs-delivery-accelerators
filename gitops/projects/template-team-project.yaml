@@ -1,0 +1,92 @@
+# Template AppProject for team onboarding.
+# Copy this file to gitops/projects/<team>-project.yaml and replace all {{team}} placeholders.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: "{{team}}"
+  namespace: argocd
+  labels:
+    tcs/layer: team
+    tcs/team: "{{team}}"
+spec:
+  description: "{{team}} team project - namespace-scoped access"
+
+  # Teams may only deploy to their own namespaces
+  destinations:
+    - namespace: "{{team}}-dev"
+      server: https://kubernetes.default.svc
+    - namespace: "{{team}}-staging"
+      server: https://kubernetes.default.svc
+    - namespace: "{{team}}-prod"
+      server: https://kubernetes.default.svc
+
+  # Teams may only use sources from our org and approved chart repos
+  sourceRepos:
+    - https://github.com/tata-consulting/*
+
+  # No cluster-scoped resources for teams
+  clusterResourceBlacklist:
+    - group: "*"
+      kind: "*"
+
+  namespaceResourceWhitelist:
+    - group: "apps"
+      kind: Deployment
+    - group: "apps"
+      kind: StatefulSet
+    - group: ""
+      kind: Service
+    - group: ""
+      kind: ConfigMap
+    - group: ""
+      kind: Secret
+    - group: "networking.k8s.io"
+      kind: Ingress
+    - group: "autoscaling"
+      kind: HorizontalPodAutoscaler
+    - group: "keda.sh"
+      kind: ScaledObject
+    - group: "argoproj.io"
+      kind: Rollout
+
+  # Sync windows for production: business hours only
+  syncWindows:
+    - kind: allow
+      schedule: "0 8 * * 1-5"
+      duration: 10h
+      applications:
+        - "{{team}}-prod-*"
+      manualSync: true
+    - kind: deny
+      schedule: "0 18 * * 1-5"
+      duration: 14h
+      applications:
+        - "{{team}}-prod-*"
+      manualSync: true
+
+  roles:
+    - name: team-admin
+      description: "Team lead - full access to team project"
+      policies:
+        - p, proj:{{team}}:team-admin, applications, *, {{team}}/*, allow
+        - p, proj:{{team}}:team-admin, repositories, get, *, allow
+      groups:
+        - "tata-consulting:{{team}}-leads"
+
+    - name: team-developer
+      description: "Team developer - can sync dev/staging, read-only on prod"
+      policies:
+        - p, proj:{{team}}:team-developer, applications, get, {{team}}/*, allow
+        - p, proj:{{team}}:team-developer, applications, sync, {{team}}/{{team}}-dev-*, allow
+        - p, proj:{{team}}:team-developer, applications, sync, {{team}}/{{team}}-staging-*, allow
+      groups:
+        - "tata-consulting:{{team}}"
+
+    - name: ci-robot
+      description: "CI/CD automation - sync only, no override"
+      policies:
+        - p, proj:{{team}}:ci-robot, applications, get, {{team}}/*, allow
+        - p, proj:{{team}}:ci-robot, applications, sync, {{team}}/*, allow
+      # Note: override permission is intentionally excluded.
+      # If automated deploys need to bypass sync windows, add override explicitly
+      # and document the business justification in this file.
