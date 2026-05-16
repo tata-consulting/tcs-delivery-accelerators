@@ -1,0 +1,15 @@
+apiVersion: v2
+name: keda-scaledobject
+description: Helm chart for deploying a KEDA ScaledObject for SQS, Kafka, or HTTP scaling
+type: application
+version: 0.1.0
+appVersion: "2.14.0"
+keywords:
+  - keda
+  - autoscaling
+  - sqs
+  - kafka
+  - http
+maintainers:
+  - name: platform-team
+    email: platform@tata-consulting.com
