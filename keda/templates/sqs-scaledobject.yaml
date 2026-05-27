@@ -1,0 +1,39 @@
+# ScaledObject template for SQS-based autoscaling
+# Copy and customize for your service.
+#
+# Prerequisites:
+# - KEDA installed in the cluster (keda namespace)
+# - TriggerAuthentication configured (see ../auth/sqs-trigger-auth.yaml)
+# - Service account annotated with IRSA role ARN
+#
+# Usage: replace all <placeholder> values and apply to your service namespace.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: <service-name>-scaledobject
+  namespace: <team-namespace>
+  labels:
+    app: <service-name>
+    tcs/scaler: sqs
+spec:
+  scaleTargetRef:
+    name: <deployment-name>
+  pollingInterval: 30
+  cooldownPeriod: 300
+  minReplicaCount: 1
+  maxReplicaCount: 20
+  triggers:
+    - type: aws-sqs-queue
+      authenticationRef:
+        name: <service-name>-keda-auth
+      metadata:
+        queueURL: https://sqs.<region>.amazonaws.com/<account-id>/<queue-name>
+        # Number of messages per replica before scaling up.
+        # Tune based on your service's processing throughput.
+        queueLength: "5"
+        awsRegion: <region>
+        # Use pod identity (IRSA) - no static credentials
+        identityOwner: pod
+        # Include both visible and in-flight messages in the scaling decision.
+        # Without this, KEDA may scale down while messages are being processed.
+        queueLengthStrategy: visibleAndNotVisible

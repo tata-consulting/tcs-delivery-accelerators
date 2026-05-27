@@ -1,0 +1,84 @@
+{{- if eq .Values.scalerType "sqs" }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ .Release.Name }}-scaledobject
+  namespace: {{ .Values.deployment.namespace | default .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}
+    tcs/scaler: sqs
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+spec:
+  scaleTargetRef:
+    name: {{ required "deployment.name is required" .Values.deployment.name }}
+  pollingInterval: {{ .Values.pollingInterval }}
+  cooldownPeriod: {{ .Values.cooldownPeriod }}
+  minReplicaCount: {{ .Values.minReplicas }}
+  maxReplicaCount: {{ .Values.maxReplicas }}
+  triggers:
+    - type: aws-sqs-queue
+      authenticationRef:
+        name: {{ required "sqs.triggerAuthName is required" .Values.sqs.triggerAuthName }}
+      metadata:
+        queueURL: {{ required "sqs.queueURL is required" .Values.sqs.queueURL }}
+        queueLength: {{ .Values.sqs.queueLength | quote }}
+        awsRegion: {{ .Values.sqs.region }}
+        identityOwner: pod
+        queueLengthStrategy: {{ .Values.sqs.queueLengthStrategy }}
+{{- end }}
+
+{{- if eq .Values.scalerType "kafka" }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ .Release.Name }}-scaledobject
+  namespace: {{ .Values.deployment.namespace | default .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}
+    tcs/scaler: kafka
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+spec:
+  scaleTargetRef:
+    name: {{ required "deployment.name is required" .Values.deployment.name }}
+  pollingInterval: {{ .Values.pollingInterval }}
+  cooldownPeriod: {{ .Values.cooldownPeriod }}
+  minReplicaCount: {{ .Values.kafka.minReplicas | default .Values.minReplicas }}
+  maxReplicaCount: {{ .Values.maxReplicas }}
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: {{ required "kafka.bootstrapServers is required" .Values.kafka.bootstrapServers }}
+        consumerGroup: {{ required "kafka.consumerGroup is required" .Values.kafka.consumerGroup }}
+        topic: {{ required "kafka.topic is required" .Values.kafka.topic }}
+        lagThreshold: {{ .Values.kafka.lagThreshold | quote }}
+        offsetResetPolicy: {{ .Values.kafka.offsetResetPolicy }}
+{{- end }}
+
+{{- if eq .Values.scalerType "http" }}
+apiVersion: http.keda.sh/v1alpha1
+kind: HTTPScaledObject
+metadata:
+  name: {{ .Release.Name }}-http-scaledobject
+  namespace: {{ .Values.deployment.namespace | default .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}
+    tcs/scaler: http
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+spec:
+  hosts:
+    - {{ required "http.host is required" .Values.http.host }}
+  pathPrefixes:
+    - /
+  scaledownPeriod: {{ .Values.cooldownPeriod }}
+  replicas:
+    min: {{ .Values.http.minReplicas | default 0 }}
+    max: {{ .Values.maxReplicas }}
+  scaleTargetRef:
+    name: {{ required "deployment.name is required" .Values.deployment.name }}
+    port: {{ .Values.http.port }}
+  scalingMetric:
+    requestRate:
+      granularity: 1s
+      targetValue: {{ .Values.http.targetRequestRate }}
+      window: 1m
+{{- end }}

@@ -1,0 +1,48 @@
+# KEDA ScaledObject Helm chart values
+# Set scalerType to one of: sqs | kafka | http
+
+scalerType: sqs
+
+# Target deployment to scale
+deployment:
+  name: ""
+  namespace: ""
+
+# Scaling boundaries
+minReplicas: 1
+maxReplicas: 20
+pollingInterval: 30
+cooldownPeriod: 300
+
+# SQS-specific settings (used when scalerType: sqs)
+sqs:
+  queueURL: ""
+  region: eu-west-1
+  # Messages visible per replica before scaling up
+  queueLength: "5"
+  # Include in-flight messages to prevent premature scale-down
+  queueLengthStrategy: visibleAndNotVisible
+  # TriggerAuthentication resource name (IRSA-based, see auth/sqs-trigger-auth.yaml)
+  triggerAuthName: ""
+
+# Kafka-specific settings (used when scalerType: kafka)
+kafka:
+  bootstrapServers: ""
+  consumerGroup: ""
+  topic: ""
+  # Target lag per replica - tune based on processing throughput
+  lagThreshold: "50"
+  # Prevents large scale-up spike on first deployment for topics with history
+  offsetResetPolicy: latest
+  # Set to 0 in dev for scale-to-zero capability
+  minReplicas: 0
+
+# HTTP-specific settings (used when scalerType: http)
+# Requires KEDA HTTP add-on installed separately
+http:
+  host: ""
+  port: 8080
+  # Target pending requests per replica
+  targetRequestRate: 100
+  # Scale to zero for dev; set to 1 for staging/prod
+  minReplicas: 0

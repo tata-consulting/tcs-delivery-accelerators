@@ -1,0 +1,39 @@
+# ScaledObject template for Kafka consumer group lag-based autoscaling.
+#
+# This scaler supports scale-to-zero (minReplicaCount: 0), which is useful
+# for dev environments where cost savings are a priority.
+#
+# Key parameter: lagThreshold
+# Sets the number of unprocessed messages per replica that triggers scale-up.
+# Too low (e.g., 5): too many replicas, wasteful.
+# Too high (e.g., 1000): messages queue up too long before scale-out.
+# Default of 50 is a safe starting point - tune per service.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: <service-name>-scaledobject
+  namespace: <team-namespace>
+  labels:
+    app: <service-name>
+    tcs/scaler: kafka
+spec:
+  scaleTargetRef:
+    name: <deployment-name>
+  pollingInterval: 30
+  cooldownPeriod: 300
+  # Set to 0 for dev environments (scale to zero when no messages).
+  # Set to 1 for staging/prod (keep at least one replica warm).
+  minReplicaCount: 0
+  maxReplicaCount: 20
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: <kafka-broker>:9092
+        consumerGroup: <consumer-group-name>
+        topic: <topic-name>
+        # Target number of unprocessed messages per replica.
+        lagThreshold: "50"
+        # Start counting from the latest offset on first run.
+        # Without this, KEDA counts from the beginning of the topic on first
+        # deployment, causing a large scale-up spike for topics with history.
+        offsetResetPolicy: latest

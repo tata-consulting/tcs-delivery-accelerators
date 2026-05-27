@@ -1,0 +1,41 @@
+# HTTPScaledObject template for HTTP-based autoscaling using KEDA HTTP add-on.
+#
+# REQUIREMENTS: The KEDA HTTP add-on must be installed in the cluster separately.
+# Install: https://github.com/kedacore/http-add-on
+#
+# USE CASES:
+# - Services with bursty HTTP traffic that should scale to zero in dev/staging
+# - Not recommended for production without cold start latency testing
+#
+# KNOWN LIMITATIONS:
+# - WebSocket upgrades are not supported (HTTP only)
+# - Cold start latency: ~2-3s from zero replicas to first response (Node.js services)
+#   This is acceptable for dev but not for production SLOs.
+#
+# The HTTP add-on intercepts incoming requests via a proxy, holds them while
+# scaling up from zero, then forwards once a replica is ready.
+apiVersion: http.keda.sh/v1alpha1
+kind: HTTPScaledObject
+metadata:
+  name: <service-name>-http-scaledobject
+  namespace: <team-namespace>
+  labels:
+    app: <service-name>
+    tcs/scaler: http
+spec:
+  hosts:
+    - <service-hostname>
+  pathPrefixes:
+    - /
+  scaledownPeriod: 300
+  replicas:
+    min: 0
+    max: 10
+  scaleTargetRef:
+    name: <deployment-name>
+    port: 8080
+  scalingMetric:
+    requestRate:
+      granularity: 1s
+      targetValue: 100
+      window: 1m

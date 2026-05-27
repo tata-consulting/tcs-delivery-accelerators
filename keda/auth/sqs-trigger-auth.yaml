@@ -1,0 +1,27 @@
+# TriggerAuthentication for SQS scaler using pod identity (IRSA).
+#
+# This uses AWS IAM Roles for Service Accounts (IRSA) - no static credentials.
+# The pod's service account must be annotated with the IAM role ARN.
+#
+# Required IAM permissions for the role:
+#   sqs:GetQueueAttributes
+#   sqs:GetQueueUrl
+#   sqs:ReceiveMessage         (for KEDA to read queue depth)
+#
+# Example service account annotation:
+#   annotations:
+#     eks.amazonaws.com/role-arn: arn:aws:iam::<account-id>:role/<service>-keda-role
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: <service-name>-keda-auth
+  namespace: <team-namespace>
+  labels:
+    app: <service-name>
+    tcs/auth: irsa
+spec:
+  podIdentity:
+    provider: aws
+    # identityId is the IAM role ARN. KEDA uses the pod's service account
+    # IRSA annotation to assume this role - no secret required.
+    identityId: "arn:aws:iam::<account-id>:role/<service>-keda-role"
